@@ -301,7 +301,8 @@
     }
     .word-tile-head .w-name  { font-size: 1.15rem; font-weight: 800; }
     .word-tile-head .pos-row { display: flex; flex-wrap: wrap; gap: .25rem; }
-    .word-tile-def { font-size: .82rem; color: var(--muted); line-height: 1.5; margin-bottom: .6rem; }
+    .word-tile-def { font-size: .82rem; color: var(--muted); line-height: 1.5; margin-bottom: .25rem; }
+    .word-tile-ja  { font-size: .8rem; color: #7c3aed; line-height: 1.5; margin-bottom: .5rem; font-weight: 500; }
     .difficulty-badge {
       display: inline-block;
       padding: .15rem .6rem;
@@ -602,9 +603,19 @@
     .card-back .back-word {
       font-size: 1.3rem;
       font-weight: 800;
-      margin-bottom: 1rem;
+      margin-bottom: .4rem;
       padding-bottom: .5rem;
       border-bottom: 2px solid var(--border);
+    }
+    .card-back .back-ja {
+      font-size: .95rem;
+      color: #7c3aed;
+      font-weight: 600;
+      margin-bottom: .85rem;
+      padding: .4rem .7rem;
+      background: #f5f3ff;
+      border-radius: 8px;
+      display: inline-block;
     }
 
     .flash-actions { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
@@ -696,6 +707,9 @@
         <button class="play-btn" id="inline-play-btn" title="Listen" disabled>🔊</button>
         <input id="inline-audio-url" type="text" placeholder="Audio URL (auto-filled from dictionary)" style="font-size:.75rem;color:var(--muted)" />
       </div>
+
+      <label class="field-label">🇯🇵 Japanese Translation</label>
+      <input class="field-input" id="inline-translation" type="text" placeholder="日本語の意味（自動翻訳・編集可）" style="color:#7c3aed;font-weight:500" />
 
       <label class="field-label" style="margin-bottom:.6rem">Meanings</label>
       <div id="inline-meanings-editor"></div>
@@ -914,7 +928,7 @@ addBtn.addEventListener('click', async () => {
       setStatus('💬 Not found in dictionary — fill in the details below.', 'loading');
     }
 
-    showInlineEditor(word, initMeanings, data.phonetic || '', data.audio_url || '');
+    showInlineEditor(word, initMeanings, data.phonetic || '', data.audio_url || '', data.translation || '');
 
   } catch (err) {
     setStatus('❌ Network error: ' + err.message, 'error');
@@ -929,13 +943,14 @@ let inlineMeanings = [];
 let inlinePhonetic = '';
 let inlineAudioUrl = '';
 
-function showInlineEditor(word, meanings, phonetic = '', audioUrl = '') {
+function showInlineEditor(word, meanings, phonetic = '', audioUrl = '', translation = '') {
   inlineMeanings = JSON.parse(JSON.stringify(meanings));
   inlinePhonetic = phonetic;
   inlineAudioUrl = audioUrl;
-  document.getElementById('inline-word').value = word;
-  document.getElementById('inline-phonetic').value   = phonetic;
-  document.getElementById('inline-audio-url').value  = audioUrl;
+  document.getElementById('inline-word').value        = word;
+  document.getElementById('inline-phonetic').value    = phonetic;
+  document.getElementById('inline-audio-url').value   = audioUrl;
+  document.getElementById('inline-translation').value = translation;
   updateInlinePlayBtn();
   renderInlineMeanings();
   document.getElementById('inline-editor').style.display = 'block';
@@ -1032,15 +1047,16 @@ document.getElementById('inline-confirm-btn').addEventListener('click', async ()
 
   const isIdiom    = inlineMeanings.some(m => m.partOfSpeech === 'idiom');
   const definition = inlineMeanings[0].definitions[0].definition;
-  const phonetic   = document.getElementById('inline-phonetic').value.trim();
-  const audio_url  = document.getElementById('inline-audio-url').value.trim();
+  const phonetic    = document.getElementById('inline-phonetic').value.trim();
+  const audio_url   = document.getElementById('inline-audio-url').value.trim();
+  const translation = document.getElementById('inline-translation').value.trim();
 
   try {
     const res  = await fetch('/api/words', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         word, is_idiom: isIdiom, manual: true,
-        definition, meanings: inlineMeanings, phonetic, audio_url,
+        definition, meanings: inlineMeanings, phonetic, audio_url, translation,
       }),
     });
     const data = await res.json();
@@ -1101,6 +1117,7 @@ function renderList() {
       </div>
       ${w.phonetic || w.audio_url ? `<div class="tile-phonetic">${phoneticHTML(w.phonetic, w.audio_url)}</div>` : ''}
       <div class="word-tile-def">${w.definition}</div>
+      ${w.translation ? `<div class="word-tile-ja">🇯🇵 ${escHtml(w.translation)}</div>` : ''}
       <span class="difficulty-badge badge-${w.difficulty}">${w.difficulty}</span>
     </div>
   `).join('');
@@ -1147,6 +1164,12 @@ function openEditModal(w) {
   body.innerHTML = `
     <label class="field-label">Word / Phrase</label>
     <input class="field-input" id="edit-word" value="${escHtml(w.word)}" />
+
+    <label class="field-label">🇯🇵 Japanese Translation</label>
+    <input class="field-input" id="edit-translation" type="text"
+      value="${escHtml(w.translation || '')}"
+      placeholder="日本語の意味（空白のままで自動翻訳）"
+      style="color:#7c3aed;font-weight:500" />
 
     <label class="field-label">Pronunciation</label>
     <div class="phonetic-row" style="margin-bottom:.85rem">
@@ -1271,15 +1294,16 @@ async function saveEdit(meanings) {
   saveBtn.disabled = true;
   saveBtn.textContent = 'Saving…';
 
-  const isIdiom  = meanings.some(m => m.partOfSpeech === 'idiom');
-  const definition = meanings[0].definitions[0].definition;
-  const phonetic   = (document.getElementById('edit-phonetic')  || {}).value?.trim() || '';
-  const audio_url  = (document.getElementById('edit-audio-url') || {}).value?.trim() || '';
+  const isIdiom    = meanings.some(m => m.partOfSpeech === 'idiom');
+  const definition  = meanings[0].definitions[0].definition;
+  const phonetic    = (document.getElementById('edit-phonetic')    || {}).value?.trim() || '';
+  const audio_url   = (document.getElementById('edit-audio-url')   || {}).value?.trim() || '';
+  const translation = (document.getElementById('edit-translation') || {}).value?.trim() || '';
 
   try {
     const res  = await fetch(`/api/words/${editingId}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ word, definition, meanings, is_idiom: isIdiom, phonetic, audio_url }),
+      body: JSON.stringify({ word, definition, meanings, is_idiom: isIdiom, phonetic, audio_url, translation }),
     });
     const data = await res.json();
     if (!res.ok) { alert('Error: ' + (data.error || 'Unknown')); return; }
@@ -1338,6 +1362,7 @@ function renderFlash() {
         </div>
         <div class="card-face card-back">
           <div class="back-word">${w.word}</div>
+          ${w.translation ? `<div class="back-ja">🇯🇵 ${escHtml(w.translation)}</div>` : ''}
           ${buildMeaningsHTML(w.meanings)}
         </div>
       </div>

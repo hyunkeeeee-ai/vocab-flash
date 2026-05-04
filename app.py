@@ -2,6 +2,7 @@ import os
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
 from flask import Flask, request, jsonify, render_template, g
 
 app = Flask(__name__)
@@ -81,9 +82,15 @@ def init_db():
                 phonetic    TEXT    NOT NULL DEFAULT '',
                 audio_url   TEXT    NOT NULL DEFAULT '',
                 difficulty  TEXT    DEFAULT 'new',
+                translation TEXT    NOT NULL DEFAULT '',
                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # 既存テーブルに translation 列がなければ追加
+        try:
+            cur.execute("ALTER TABLE words ADD COLUMN translation TEXT NOT NULL DEFAULT ''")
+        except Exception:
+            pass
         cur.close()
         conn.close()
     else:
@@ -104,16 +111,38 @@ def init_db():
                 )
             """)
             for col, typedef in [
-                ("meanings",  "TEXT NOT NULL DEFAULT '[]'"),
-                ("is_idiom",  "INTEGER NOT NULL DEFAULT 0"),
-                ("phonetic",  "TEXT NOT NULL DEFAULT ''"),
-                ("audio_url", "TEXT NOT NULL DEFAULT ''"),
+                ("meanings",     "TEXT NOT NULL DEFAULT '[]'"),
+                ("is_idiom",     "INTEGER NOT NULL DEFAULT 0"),
+                ("phonetic",     "TEXT NOT NULL DEFAULT ''"),
+                ("audio_url",    "TEXT NOT NULL DEFAULT ''"),
+                ("translation",  "TEXT NOT NULL DEFAULT ''"),
             ]:
                 try:
                     con.execute(f"ALTER TABLE words ADD COLUMN {col} {typedef}")
                 except Exception:
                     pass
             con.commit()
+
+
+# ── MyMemory Translation API ─────────────────────────────────────────────────
+
+def translate_to_japanese(text: str) -> str:
+    """MyMemory APIで英→日翻訳。失敗したら空文字を返す。"""
+    if not text:
+        return ""
+    try:
+        params = urllib.parse.urlencode({"q": text[:500], "langpair": "en|ja"})
+        url = f"https://api.mymemory.translated.net/get?{params}"
+        req = urllib.request.Request(url, headers={"User-Agent": "VocabFlash/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode())
+        translated = data.get("responseData", {}).get("translatedText", "")
+        # MyMemory が失敗すると "PLEASE SELECT TWO DISTINCT LANGUAGES" 等を返す
+        if translated and not translated.startswith("PLEASE"):
+            return translated
+        return ""
+    except Exception:
+        return ""
 
 
 # ── Free Dictionary API ──────────────────────────────────────────────────────
@@ -199,22 +228,23 @@ def row_to_dict(r):
     meanings = json.loads(meanings_raw) if isinstance(meanings_raw, str) else meanings_raw
     examples = json.loads(examples_raw) if isinstance(examples_raw, str) else examples_raw
     return {
-        "id":         r["id"],
-        "word":       r["word"],
-        "definition": r["definition"],
-        "examples":   examples,
-        "meanings":   meanings,
-        "is_idiom":   bool(r["is_idiom"]),
-        "phonetic":   r["phonetic"]  or "",
-        "audio_url":  r["audio_url"] or "",
-        "difficulty": r["difficulty"],
-        "created_at": str(r["created_at"]),
+        "id":          r["id"],
+        "word":        r["word"],
+        "definition":  r["definition"],
+        "examples":    examples,
+        "meanings":    meanings,
+        "is_idiom":    bool(r["is_idiom"]),
+        "phonetic":    r["phonetic"]    or "",
+        "audio_url":   r["audio_url"]   or "",
+        "difficulty":  r["difficulty"],
+        "translation": r["translation"] or "",
+        "created_at":  str(r["created_at"]),
     }
 
 
 SELECT_COLS = (
     "id, word, definition, examples, meanings, is_idiom, "
-    "phonetic, audio_url, difficulty, created_at"
+    "phonetic, audio_url, difficulty, translation, created_at"
 )
 
 # 初回リクエスト時に1度だけDB初期化（起動時ではなくリクエスト時に実行）
@@ -252,7 +282,8 @@ def api_lookup():
         return jsonify({"error": "word is required"}), 400
     try:
         info = lookup_dictionary(phrase)
-        return jsonify({"found": True, **info})
+        translation = translate_to_japanese(info["definition"])
+        return jsonify({"found": True, "translation": translation, **info})
     except ValueError:
         return jsonify({"found": False})
     except Exception as e:
@@ -273,10 +304,11 @@ def add_word():
         return jsonify({"error": f'"{word}" is already registered'}), 409
 
     if data.get("manual"):
-        meanings   = data.get("meanings") or []
-        definition = (data.get("definition") or "").strip()
-        phonetic   = (data.get("phonetic")   or "").strip()
-        audio_url  = (data.get("audio_url")  or "").strip()
+        meanings    = data.get("meanings") or []
+        definition  = (data.get("definition")  or "").strip()
+        phonetic    = (data.get("phonetic")    or "").strip()
+        audio_url   = (data.get("audio_url")   or "").strip()
+        translation = (data.get("translation") or "").strip()
         if not definition or not meanings:
             return jsonify({"error": "definition and meanings are required"}), 400
         examples = []
@@ -285,25 +317,29 @@ def add_word():
                 ex = (d.get("example") or "").strip()
                 if ex and ex not in examples:
                     examples.append(ex)
+        # 翻訳が渡されていなければ自動取得
+        if not translation:
+            translation = translate_to_japanese(definition)
         info = {
             "definition": definition, "examples": examples,
             "meanings":   meanings,   "phonetic":  phonetic,
-            "audio_url":  audio_url,
+            "audio_url":  audio_url,  "translation": translation,
         }
     else:
         try:
             info = lookup_dictionary(word)
+            info["translation"] = translate_to_japanese(info["definition"])
         except ValueError as e:
             return jsonify({"error": str(e)}), 404
         except Exception as e:
             return jsonify({"error": f"Dictionary lookup failed: {str(e)}"}), 500
 
     db_execute(
-        "INSERT INTO words (word, definition, examples, meanings, is_idiom, phonetic, audio_url) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO words (word, definition, examples, meanings, is_idiom, phonetic, audio_url, translation) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (word, info["definition"], json.dumps(info["examples"]),
          json.dumps(info["meanings"]), is_idiom,
-         info["phonetic"], info["audio_url"]),
+         info["phonetic"], info["audio_url"], info["translation"]),
     )
     db_commit()
 
@@ -313,13 +349,14 @@ def add_word():
 
 @app.route("/api/words/<int:word_id>", methods=["PUT"])
 def update_word(word_id):
-    data       = request.get_json()
-    word       = (data.get("word")       or "").strip().lower()
-    definition = (data.get("definition") or "").strip()
-    meanings   = data.get("meanings")
-    is_idiom   = bool(data.get("is_idiom", False))
-    phonetic   = (data.get("phonetic")  or "").strip()
-    audio_url  = (data.get("audio_url") or "").strip()
+    data        = request.get_json()
+    word        = (data.get("word")        or "").strip().lower()
+    definition  = (data.get("definition")  or "").strip()
+    meanings    = data.get("meanings")
+    is_idiom    = bool(data.get("is_idiom", False))
+    phonetic    = (data.get("phonetic")    or "").strip()
+    audio_url   = (data.get("audio_url")   or "").strip()
+    translation = (data.get("translation") or "").strip()
 
     if not word:
         return jsonify({"error": "word is required"}), 400
@@ -341,9 +378,9 @@ def update_word(word_id):
 
     db_execute(
         "UPDATE words SET word=?, definition=?, examples=?, meanings=?, "
-        "is_idiom=?, phonetic=?, audio_url=? WHERE id=?",
+        "is_idiom=?, phonetic=?, audio_url=?, translation=? WHERE id=?",
         (word, definition, json.dumps(examples), json.dumps(meanings),
-         is_idiom, phonetic, audio_url, word_id),
+         is_idiom, phonetic, audio_url, translation, word_id),
     )
     db_commit()
 
