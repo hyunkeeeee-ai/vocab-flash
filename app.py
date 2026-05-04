@@ -217,11 +217,18 @@ SELECT_COLS = (
     "phonetic, audio_url, difficulty, created_at"
 )
 
-# 起動時にDB初期化
-try:
-    init_db()
-except Exception as e:
-    print(f"[WARNING] init_db failed: {e}")
+# 初回リクエスト時に1度だけDB初期化（起動時ではなくリクエスト時に実行）
+_db_initialized = False
+
+@app.before_request
+def ensure_db():
+    global _db_initialized
+    if not _db_initialized:
+        try:
+            init_db()
+            _db_initialized = True
+        except Exception as e:
+            print(f"[WARNING] init_db failed: {e}")
 
 # ── Routes ──────────────────────────────────────────────────────────────────
 
