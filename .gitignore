@@ -1,0 +1,6 @@
+words.db
+server.log
+__pycache__/
+*.pyc
+.env
+.DS_Store

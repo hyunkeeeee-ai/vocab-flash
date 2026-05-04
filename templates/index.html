@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vocab Flash – English Word Flashcards</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #f0f4ff;
+      --surface:   #ffffff;
+      --primary:   #4f46e5;
+      --primary-h: #4338ca;
+      --accent:    #06b6d4;
+      --text:      #1e1b4b;
+      --muted:     #6b7280;
+      --border:    #e5e7eb;
+      --red:       #ef4444;
+      --radius:    14px;
+      --shadow:    0 4px 24px rgba(79,70,229,.12);
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header & Tabs ─────────────────────────────────────────────── */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      box-shadow: 0 2px 12px rgba(79,70,229,.3);
+    }
+    header .logo { font-size: 1.6rem; }
+    header h1   { font-size: 1.25rem; font-weight: 700; }
+    header .sub { font-size: .8rem; opacity: .8; margin-top: 1px; }
+
+    .tabs {
+      display: flex;
+      gap: .5rem;
+      padding: 1.25rem 2rem .25rem;
+      border-bottom: 2px solid var(--border);
+      background: var(--surface);
+    }
+    .tab-btn {
+      padding: .5rem 1.25rem;
+      border: none;
+      background: none;
+      border-radius: 8px 8px 0 0;
+      font-size: .95rem;
+      cursor: pointer;
+      color: var(--muted);
+      font-weight: 500;
+      transition: all .2s;
+    }
+    .tab-btn:hover  { color: var(--primary); background: var(--bg); }
+    .tab-btn.active { color: var(--primary); border-bottom: 3px solid var(--primary); font-weight: 700; }
+
+    .page { display: none; padding: 2rem; max-width: 900px; margin: 0 auto; }
+    .page.active { display: block; }
+
+    /* ── Shared card box ───────────────────────────────────────────── */
+    .box {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
+    }
+    .box h2 { font-size: 1.1rem; margin-bottom: 1.25rem; color: var(--primary); }
+
+    /* ── POS tag ───────────────────────────────────────────────────── */
+    .pos-tag {
+      display: inline-block;
+      padding: .15rem .55rem;
+      border-radius: 6px;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-right: .4rem;
+      background: #e0e7ff;
+      color: #3730a3;
+    }
+    .pos-noun    { background: #dbeafe; color: #1e40af; }
+    .pos-verb    { background: #dcfce7; color: #166534; }
+    .pos-adjective,.pos-adj { background: #fef9c3; color: #854d0e; }
+    .pos-adverb,.pos-adv    { background: #fce7f3; color: #9d174d; }
+    .pos-pronoun { background: #f3e8ff; color: #6b21a8; }
+    .pos-preposition,.pos-prep { background: #ffedd5; color: #9a3412; }
+    .pos-conjunction,.pos-conj { background: #e0f2fe; color: #075985; }
+    .pos-interjection          { background: #fee2e2; color: #991b1b; }
+    .pos-idiom  { background: #fdf2f8; color: #be185d; }
+    .pos-other  { background: #f1f5f9; color: #475569; }
+
+    /* ── Meaning block (shared between preview, list detail, flashcard) */
+    .meaning-block { margin-bottom: 1rem; }
+    .meaning-block:last-child { margin-bottom: 0; }
+    .meaning-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: .45rem;
+    }
+    .meaning-number {
+      font-size: .72rem;
+      color: var(--muted);
+      margin-left: .3rem;
+    }
+    .def-list { list-style: none; padding: 0; }
+    .def-item {
+      padding: .3rem 0 .3rem .85rem;
+      border-left: 2px solid #e0e7ff;
+      margin-bottom: .4rem;
+    }
+    .def-item .def-text  { font-size: .9rem; line-height: 1.5; }
+    .def-item .ex-text   {
+      font-size: .8rem;
+      color: var(--muted);
+      font-style: italic;
+      margin-top: .15rem;
+    }
+    .def-item .ex-text::before { content: '"'; }
+    .def-item .ex-text::after  { content: '"'; }
+
+    /* ── Add Word ──────────────────────────────────────────────────── */
+    .mode-toggle {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: 1rem;
+    }
+    .mode-btn {
+      padding: .4rem 1rem;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      border-radius: 20px;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      color: var(--muted);
+    }
+    .mode-btn.active { border-color: var(--primary); color: var(--primary); background: #eef2ff; }
+
+    .input-row {
+      display: flex;
+      gap: .75rem;
+    }
+    .input-row input {
+      flex: 1;
+      padding: .75rem 1rem;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .input-row input:focus { border-color: var(--primary); }
+    .btn {
+      padding: .75rem 1.5rem;
+      border: none;
+      border-radius: 10px;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-h); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* Manual idiom entry form */
+    .manual-form {
+      display: none;
+      margin-top: 1.25rem;
+      padding: 1.25rem;
+      background: #fdf2f8;
+      border: 2px solid #f9a8d4;
+      border-radius: 12px;
+    }
+    .manual-form.show { display: block; }
+    .manual-form p {
+      font-size: .85rem;
+      color: #9d174d;
+      margin-bottom: .75rem;
+      font-weight: 600;
+    }
+    .manual-form textarea {
+      width: 100%;
+      padding: .6rem .85rem;
+      border: 2px solid #f9a8d4;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-family: inherit;
+      outline: none;
+      resize: vertical;
+      background: #fff;
+      margin-bottom: .6rem;
+    }
+    .manual-form textarea:focus { border-color: #be185d; }
+    .manual-form label { font-size: .78rem; font-weight: 700; color: #be185d; display: block; margin-bottom: .25rem; }
+
+    .status-msg {
+      margin-top: 1rem;
+      padding: .75rem 1rem;
+      border-radius: 8px;
+      font-size: .9rem;
+      display: none;
+    }
+    .status-msg.success { background: #d1fae5; color: #065f46; display: block; }
+    .status-msg.error   { background: #fee2e2; color: #991b1b; display: block; }
+    .status-msg.loading { background: #ede9fe; color: #4338ca; display: block; }
+
+    /* ── Inline editor (shown after lookup, before save) ──────────── */
+    #inline-editor { display: none; margin-top: 1.5rem; }
+    #inline-editor .box { border-left: 4px solid var(--accent); }
+    .inline-editor-label {
+      font-size: .72rem; color: var(--accent); font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: .75rem;
+    }
+    .inline-word-row {
+      display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem;
+    }
+    .inline-word-row .w-big {
+      font-size: 1.5rem; font-weight: 800; flex: 1;
+      padding: .4rem .75rem; border: 2px solid var(--border);
+      border-radius: 8px; outline: none; font-family: inherit;
+      transition: border-color .2s;
+    }
+    .inline-word-row .w-big:focus { border-color: var(--primary); }
+    .inline-save-row {
+      display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1rem;
+    }
+    .btn-discard {
+      padding: .6rem 1.2rem; border: 2px solid var(--border);
+      background: var(--surface); border-radius: 10px;
+      font-size: .9rem; font-weight: 600; cursor: pointer; color: var(--muted);
+      transition: all .15s;
+    }
+    .btn-discard:hover { border-color: var(--red); color: var(--red); }
+    .btn-confirm {
+      padding: .6rem 1.4rem; background: var(--primary); color: #fff;
+      border: none; border-radius: 10px;
+      font-size: .9rem; font-weight: 600; cursor: pointer; transition: background .2s;
+    }
+    .btn-confirm:hover:not(:disabled) { background: var(--primary-h); }
+    .btn-confirm:disabled { opacity: .55; cursor: not-allowed; }
+
+    #preview-card { display: none; margin-top: 1.5rem; }
+    #preview-card .box { border-left: 4px solid var(--green, #10b981); }
+    .preview-added-label {
+      font-size: .72rem; color: #059669; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: .5rem;
+    }
+    .preview-word { font-size: 1.6rem; font-weight: 800; margin-bottom: 1rem; }
+
+    /* ── Word List ─────────────────────────────────────────────────── */
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .list-header h2 { font-size: 1.05rem; color: var(--muted); }
+    .filter-row { display: flex; gap: .5rem; }
+    .filter-btn {
+      padding: .35rem .85rem;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      border-radius: 20px;
+      font-size: .82rem;
+      cursor: pointer;
+      transition: all .15s;
+      font-weight: 500;
+    }
+    .filter-btn.active, .filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    .word-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .word-tile {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.25rem 1rem;
+      box-shadow: var(--shadow);
+      position: relative;
+      transition: transform .2s;
+    }
+    .word-tile:hover { transform: translateY(-2px); }
+    .word-tile-head {
+      display: flex;
+      align-items: baseline;
+      gap: .5rem;
+      margin-bottom: .5rem;
+      padding-right: 1.5rem;
+    }
+    .word-tile-head .w-name  { font-size: 1.15rem; font-weight: 800; }
+    .word-tile-head .pos-row { display: flex; flex-wrap: wrap; gap: .25rem; }
+    .word-tile-def { font-size: .82rem; color: var(--muted); line-height: 1.5; margin-bottom: .6rem; }
+    .difficulty-badge {
+      display: inline-block;
+      padding: .15rem .6rem;
+      border-radius: 20px;
+      font-size: .72rem;
+      font-weight: 600;
+    }
+    .badge-new      { background: #ede9fe; color: #6d28d9; }
+    .badge-learning { background: #fef3c7; color: #92400e; }
+    .badge-mastered { background: #d1fae5; color: #065f46; }
+    .badge-idiom    { background: #fdf2f8; color: #be185d; border: 1px solid #f9a8d4; }
+    .tile-actions {
+      position: absolute;
+      top: .65rem; right: .65rem;
+      display: flex;
+      gap: .3rem;
+    }
+    .tile-actions button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: .95rem;
+      color: #d1d5db;
+      transition: color .15s;
+      padding: .1rem .2rem;
+    }
+    .tile-actions .edit-btn:hover   { color: var(--primary); }
+    .tile-actions .delete-btn:hover { color: var(--red); }
+    .empty-state { text-align: center; padding: 3rem; color: var(--muted); grid-column: 1/-1; }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+
+    /* ── Edit Modal ────────────────────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(30,27,75,.45);
+      backdrop-filter: blur(3px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      width: 100%;
+      max-width: 620px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h3 { font-size: 1.05rem; font-weight: 700; color: var(--primary); }
+    .modal-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.3rem; color: var(--muted); line-height: 1;
+    }
+    .modal-body {
+      padding: 1.25rem 1.5rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 2px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: .75rem;
+    }
+    .field-label {
+      font-size: .75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; color: var(--primary); margin-bottom: .3rem;
+      display: block;
+    }
+    .field-input {
+      width: 100%;
+      padding: .6rem .85rem;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: .92rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+      margin-bottom: .85rem;
+    }
+    .field-input:focus { border-color: var(--primary); }
+
+    /* ── Phonetic ──────────────────────────────────────────────────── */
+    .phonetic-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: .85rem;
+    }
+    .phonetic-row input {
+      flex: 1;
+      padding: .5rem .75rem;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: .95rem;
+      font-family: 'Segoe UI', monospace;
+      letter-spacing: .5px;
+      outline: none;
+      color: var(--primary);
+      transition: border-color .2s;
+    }
+    .phonetic-row input:focus { border-color: var(--primary); }
+    .play-btn {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, transform .1s;
+    }
+    .play-btn:hover  { background: var(--primary-h); transform: scale(1.08); }
+    .play-btn:active { transform: scale(.95); }
+    .play-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    /* phonetic display (read-only, in tiles and flashcard) */
+    .phonetic-display {
+      font-size: .8rem;
+      color: var(--primary);
+      letter-spacing: .5px;
+      opacity: .85;
+    }
+    .card-front .phonetic-display {
+      color: rgba(255,255,255,.8);
+      font-size: .9rem;
+      margin-top: .3rem;
+    }
+    .tile-phonetic {
+      font-size: .75rem;
+      color: var(--primary);
+      letter-spacing: .3px;
+      margin-bottom: .3rem;
+      opacity: .8;
+    }
+
+    /* Meaning editor blocks */
+    .meaning-editor {
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: .85rem;
+      overflow: hidden;
+    }
+    .meaning-editor-head {
+      background: var(--bg);
+      padding: .5rem .85rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .meaning-editor-head select {
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      padding: .2rem .5rem;
+      font-size: .8rem;
+      font-weight: 700;
+      background: white;
+      outline: none;
+      cursor: pointer;
+    }
+    .meaning-editor-head .rm-meaning {
+      margin-left: auto;
+      background: none; border: none;
+      color: #d1d5db; cursor: pointer; font-size: .9rem;
+      transition: color .15s;
+    }
+    .meaning-editor-head .rm-meaning:hover { color: var(--red); }
+    .def-editor-list { padding: .6rem .85rem; }
+    .def-editor-item {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: .6rem;
+      align-items: flex-start;
+    }
+    .def-editor-item textarea {
+      flex: 1;
+      padding: .45rem .65rem;
+      border: 2px solid var(--border);
+      border-radius: 7px;
+      font-size: .83rem;
+      font-family: inherit;
+      outline: none;
+      resize: vertical;
+      min-height: 52px;
+      transition: border-color .2s;
+    }
+    .def-editor-item textarea:focus { border-color: var(--primary); }
+    .def-editor-item textarea.ex-ta { border-style: dashed; color: var(--muted); font-style: italic; }
+    .def-editor-item textarea.ex-ta:focus { border-style: solid; }
+    .def-editor-col { display: flex; flex-direction: column; gap: .4rem; flex: 1; }
+    .rm-def {
+      background: none; border: none; cursor: pointer;
+      color: #d1d5db; font-size: .85rem; padding: .3rem;
+      transition: color .15s; align-self: flex-start; margin-top: .15rem;
+    }
+    .rm-def:hover { color: var(--red); }
+    .add-def-btn {
+      font-size: .78rem; color: var(--primary); background: none;
+      border: 2px dashed var(--border); border-radius: 7px;
+      padding: .35rem .75rem; cursor: pointer; width: 100%;
+      margin-bottom: .5rem; transition: all .15s; font-weight: 600;
+    }
+    .add-def-btn:hover { border-color: var(--primary); background: #eef2ff; }
+    .add-meaning-btn {
+      font-size: .82rem; color: var(--primary); background: none;
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: .5rem; cursor: pointer; width: 100%;
+      transition: all .15s; font-weight: 600;
+    }
+    .add-meaning-btn:hover { border-color: var(--primary); background: #eef2ff; }
+    .btn-cancel {
+      background: var(--border); color: var(--text);
+      padding: .65rem 1.25rem; border: none;
+      border-radius: 10px; font-size: .9rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-save {
+      background: var(--primary); color: #fff;
+      padding: .65rem 1.4rem; border: none;
+      border-radius: 10px; font-size: .9rem; font-weight: 600; cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-save:hover { background: var(--primary-h); }
+    .btn-save:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* ── Flashcard ─────────────────────────────────────────────────── */
+    .flash-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .flash-counter { color: var(--muted); font-size: .9rem; }
+
+    .card-scene {
+      width: 100%;
+      max-width: 600px;
+      perspective: 1200px;
+      cursor: pointer;
+    }
+    .card-inner {
+      width: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform .55s cubic-bezier(.4,0,.2,1);
+    }
+    .card-scene.flipped .card-inner { transform: rotateY(180deg); }
+
+    .card-face {
+      width: 100%;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    /* Front */
+    .card-front {
+      height: 220px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .card-front .hint { font-size: .82rem; opacity: .75; margin-bottom: 1rem; }
+    .card-front .fc-word { font-size: 2.5rem; font-weight: 800; letter-spacing: -1px; }
+    .card-front .fc-pos-row { margin-top: .75rem; display: flex; gap: .4rem; flex-wrap: wrap; justify-content: center; }
+
+    /* Back – absolute so it flips behind */
+    .card-back {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      min-height: 220px;
+      background: var(--surface);
+      transform: rotateY(180deg);
+      padding: 1.5rem;
+      overflow-y: auto;
+      max-height: 420px;
+    }
+    .card-back .back-word {
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      padding-bottom: .5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .flash-actions { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
+    .btn-diff {
+      padding: .6rem 1.4rem;
+      border: none;
+      border-radius: 10px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-diff:hover { transform: translateY(-2px); opacity: .9; }
+    .btn-new      { background: #ede9fe; color: #6d28d9; }
+    .btn-learning { background: #fef3c7; color: #92400e; }
+    .btn-mastered { background: #d1fae5; color: #065f46; }
+    .btn-skip     { background: var(--border); color: var(--muted); }
+
+    .flash-nav { display: flex; gap: .75rem; }
+    .btn-nav {
+      padding: .55rem 1.2rem;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      border-radius: 10px;
+      font-size: .9rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all .15s;
+    }
+    .btn-nav:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-nav:disabled { opacity: .4; cursor: not-allowed; }
+
+    .no-words-flash { text-align: center; padding: 3rem; color: var(--muted); }
+
+    @media (max-width: 520px) {
+      .input-row { flex-direction: column; }
+      .tabs { padding: 1rem 1rem .25rem; }
+      .page { padding: 1rem; }
+      .card-front .fc-word { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📖</div>
+  <div>
+    <h1>Vocab Flash</h1>
+    <div class="sub">English word flashcards</div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="add">➕ Add Word</button>
+  <button class="tab-btn" data-tab="list">📚 Word List</button>
+  <button class="tab-btn" data-tab="flash">🃏 Flashcards</button>
+</div>
+
+<!-- ── ADD WORD ──────────────────────────────────────────────────────────── -->
+<div class="page active" id="tab-add">
+  <div class="box">
+    <h2>✨ Register a new entry</h2>
+
+    <!-- Mode toggle -->
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-word">📝 Word</button>
+      <button class="mode-btn" id="mode-idiom">💬 Idiom</button>
+    </div>
+
+    <div class="input-row">
+      <input id="word-input" type="text" placeholder="e.g. serendipity" autocomplete="off" />
+      <button class="btn btn-primary" id="add-btn">Look up &amp; Save</button>
+    </div>
+
+    <div class="status-msg" id="status-msg"></div>
+  </div>
+
+  <!-- Inline editor: appears after lookup so user can edit before saving -->
+  <div id="inline-editor">
+    <div class="box">
+      <div class="inline-editor-label">✏️ Review &amp; edit before saving</div>
+      <div class="inline-word-row">
+        <input class="w-big" id="inline-word" type="text" />
+      </div>
+
+      <label class="field-label">Pronunciation</label>
+      <div class="phonetic-row">
+        <input id="inline-phonetic"  type="text" placeholder="IPA  e.g. /ˌsɛrənˈdɪpɪti/" />
+        <button class="play-btn" id="inline-play-btn" title="Listen" disabled>🔊</button>
+        <input id="inline-audio-url" type="text" placeholder="Audio URL (auto-filled from dictionary)" style="font-size:.75rem;color:var(--muted)" />
+      </div>
+
+      <label class="field-label" style="margin-bottom:.6rem">Meanings</label>
+      <div id="inline-meanings-editor"></div>
+      <button class="add-meaning-btn" id="inline-add-meaning-btn">＋ Add part of speech</button>
+      <div class="inline-save-row">
+        <button class="btn-discard" id="inline-discard-btn">✕ Discard</button>
+        <button class="btn-confirm" id="inline-confirm-btn">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview: shown after successful save -->
+  <div id="preview-card">
+    <div class="box">
+      <div class="preview-added-label">✅ Saved!</div>
+      <div class="preview-word" id="preview-word"></div>
+      <div id="preview-meanings"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── EDIT MODAL ─────────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>✏️ Edit entry</h3>
+      <button class="modal-close" id="modal-close-btn">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="modal-cancel-btn">Cancel</button>
+      <button class="btn-save"   id="modal-save-btn">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── WORD LIST ─────────────────────────────────────────────────────────── -->
+<div class="page" id="tab-list">
+  <div class="list-header">
+    <h2 id="list-count">0 words</h2>
+    <div class="filter-row">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="new">New</button>
+      <button class="filter-btn" data-filter="learning">Learning</button>
+      <button class="filter-btn" data-filter="mastered">Mastered</button>
+    </div>
+  </div>
+  <div class="word-grid" id="word-grid"></div>
+</div>
+
+<!-- ── FLASHCARDS ────────────────────────────────────────────────────────── -->
+<div class="page" id="tab-flash">
+  <div class="flash-wrap" id="flash-content">
+    <div class="no-words-flash">
+      <div style="font-size:3rem">📭</div>
+      <p style="margin-top:.5rem">No words yet. Add some first!</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Pronunciation helpers ─────────────────────────────────────────────────
+let currentAudio = null;
+
+function playAudio(url) {
+  if (!url) return;
+  if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+  currentAudio = new Audio(url);
+  currentAudio.play().catch(() => {});
+}
+
+function phoneticHTML(phonetic, audioUrl, style = '') {
+  if (!phonetic && !audioUrl) return '';
+  const ipa  = phonetic  ? `<span class="phonetic-display" style="${style}">${escHtml(phonetic)}</span>` : '';
+  const btn  = audioUrl  ? `<button class="play-btn" onclick="playAudio('${escHtml(audioUrl)}')" title="Listen">🔊</button>` : '';
+  return `<span style="display:inline-flex;align-items:center;gap:.35rem">${ipa}${btn}</span>`;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function posClass(pos) {
+  const map = {
+    noun: 'pos-noun', verb: 'pos-verb',
+    adjective: 'pos-adjective', adverb: 'pos-adverb',
+    pronoun: 'pos-pronoun', preposition: 'pos-preposition',
+    conjunction: 'pos-conjunction', interjection: 'pos-interjection',
+    idiom: 'pos-idiom',
+  };
+  return map[pos] || 'pos-other';
+}
+
+function posAbbr(pos) {
+  const map = {
+    noun: 'n.', verb: 'v.', adjective: 'adj.', adverb: 'adv.',
+    pronoun: 'pron.', preposition: 'prep.',
+    conjunction: 'conj.', interjection: 'interj.',
+    idiom: 'idiom',
+  };
+  return map[pos] || pos;
+}
+
+function buildMeaningsHTML(meanings) {
+  if (!meanings || !meanings.length)
+    return '<p style="color:var(--muted);font-size:.85rem">No details available.</p>';
+  return meanings.map(m => `
+    <div class="meaning-block">
+      <div class="meaning-header">
+        <span class="pos-tag ${posClass(m.partOfSpeech)}">${m.partOfSpeech}</span>
+        <span class="meaning-number">${m.definitions.length} meaning${m.definitions.length > 1 ? 's' : ''}</span>
+      </div>
+      <ul class="def-list">
+        ${m.definitions.map(d => `
+          <li class="def-item">
+            <div class="def-text">${d.definition}</div>
+            ${d.example ? `<div class="ex-text">${d.example}</div>` : ''}
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+  `).join('');
+}
+
+function buildPosRow(meanings) {
+  if (!meanings || !meanings.length) return '';
+  return meanings.map(m =>
+    `<span class="pos-tag ${posClass(m.partOfSpeech)}">${posAbbr(m.partOfSpeech)}</span>`
+  ).join('');
+}
+
+function showPreview(data) {
+  document.getElementById('preview-word').innerHTML =
+    data.word + (data.is_idiom ? ' <span class="pos-tag pos-idiom">idiom</span>' : '');
+  document.getElementById('preview-meanings').innerHTML = buildMeaningsHTML(data.meanings);
+  document.getElementById('preview-card').style.display = 'block';
+}
+
+// ── State ─────────────────────────────────────────────────────────────────
+let words        = [];
+let flashIdx     = 0;
+let activeFilter = 'all';
+let isIdiomMode  = false;
+
+// ── Tab navigation ────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'list')  renderList();
+    if (btn.dataset.tab === 'flash') renderFlash();
+  });
+});
+
+// ── Mode toggle (Word / Idiom) ─────────────────────────────────────────────
+const modeWordBtn  = document.getElementById('mode-word');
+const modeIdiomBtn = document.getElementById('mode-idiom');
+const wordInput    = document.getElementById('word-input');
+
+modeWordBtn.addEventListener('click', () => {
+  isIdiomMode = false;
+  modeWordBtn.classList.add('active');
+  modeIdiomBtn.classList.remove('active');
+  wordInput.placeholder = 'e.g. serendipity';
+});
+modeIdiomBtn.addEventListener('click', () => {
+  isIdiomMode = true;
+  modeIdiomBtn.classList.add('active');
+  modeWordBtn.classList.remove('active');
+  wordInput.placeholder = 'e.g. kick the bucket';
+});
+
+// ── Add Word ──────────────────────────────────────────────────────────────
+const addBtn    = document.getElementById('add-btn');
+const statusMsg = document.getElementById('status-msg');
+
+function setStatus(msg, type) {
+  statusMsg.textContent = msg;
+  statusMsg.className = 'status-msg ' + type;
+}
+
+function hideEditor() {
+  document.getElementById('inline-editor').style.display = 'none';
+}
+function hidePreview() {
+  document.getElementById('preview-card').style.display = 'none';
+}
+
+wordInput.addEventListener('keydown', e => { if (e.key === 'Enter') addBtn.click(); });
+
+// ── Step 1: Look up ───────────────────────────────────────────────────────
+addBtn.addEventListener('click', async () => {
+  const word = wordInput.value.trim();
+  if (!word) { setStatus('Please enter a word or idiom.', 'error'); return; }
+
+  addBtn.disabled = true;
+  hideEditor();
+  hidePreview();
+  setStatus('🔍 Looking up in dictionary…', 'loading');
+
+  try {
+    const res  = await fetch('/api/lookup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word }),
+    });
+    const data = await res.json();
+
+    if (data.error) { setStatus('❌ ' + data.error, 'error'); return; }
+
+    // Build initial meanings (found or blank for manual idiom)
+    let initMeanings;
+    if (data.found) {
+      initMeanings = data.meanings;
+      setStatus('✅ Found! Edit if needed, then save.', 'success');
+    } else {
+      initMeanings = [{ partOfSpeech: 'idiom', definitions: [{ definition: '', example: '' }] }];
+      setStatus('💬 Not found in dictionary — fill in the details below.', 'loading');
+    }
+
+    showInlineEditor(word, initMeanings, data.phonetic || '', data.audio_url || '');
+
+  } catch (err) {
+    setStatus('❌ Network error: ' + err.message, 'error');
+  } finally {
+    addBtn.disabled = false;
+  }
+});
+
+// ── Inline editor ─────────────────────────────────────────────────────────
+let inlineMeanings = [];
+
+let inlinePhonetic = '';
+let inlineAudioUrl = '';
+
+function showInlineEditor(word, meanings, phonetic = '', audioUrl = '') {
+  inlineMeanings = JSON.parse(JSON.stringify(meanings));
+  inlinePhonetic = phonetic;
+  inlineAudioUrl = audioUrl;
+  document.getElementById('inline-word').value = word;
+  document.getElementById('inline-phonetic').value   = phonetic;
+  document.getElementById('inline-audio-url').value  = audioUrl;
+  updateInlinePlayBtn();
+  renderInlineMeanings();
+  document.getElementById('inline-editor').style.display = 'block';
+  document.getElementById('inline-editor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function updateInlinePlayBtn() {
+  const btn = document.getElementById('inline-play-btn');
+  if (!btn) return;
+  const url = document.getElementById('inline-audio-url').value.trim();
+  btn.disabled = !url;
+}
+
+function renderInlineMeanings() {
+  const container = document.getElementById('inline-meanings-editor');
+  container.innerHTML = inlineMeanings.map((m, mi) => `
+    <div class="meaning-editor" data-mi="${mi}">
+      <div class="meaning-editor-head">
+        <select class="pos-select" data-mi="${mi}">
+          ${POS_OPTIONS.map(p => `<option value="${p}" ${p === m.partOfSpeech ? 'selected' : ''}>${p}</option>`).join('')}
+        </select>
+        <button class="rm-meaning" data-mi="${mi}" title="Remove">✕</button>
+      </div>
+      <div class="def-editor-list">
+        ${m.definitions.map((d, di) => defItemHTML(mi, di, d)).join('')}
+        <button class="add-def-btn" data-mi="${mi}">＋ Add definition</button>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.pos-select').forEach(sel => {
+    sel.addEventListener('change', () => { inlineMeanings[+sel.dataset.mi].partOfSpeech = sel.value; });
+  });
+  container.querySelectorAll('.rm-meaning').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (inlineMeanings.length === 1) { alert('At least one meaning is required.'); return; }
+      inlineMeanings.splice(+btn.dataset.mi, 1);
+      renderInlineMeanings();
+    });
+  });
+  container.querySelectorAll('.add-def-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      inlineMeanings[+btn.dataset.mi].definitions.push({ definition: '', example: '' });
+      renderInlineMeanings();
+    });
+  });
+  container.querySelectorAll('.rm-def').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mi = +btn.dataset.mi, di = +btn.dataset.di;
+      if (inlineMeanings[mi].definitions.length === 1) { alert('At least one definition is required.'); return; }
+      inlineMeanings[mi].definitions.splice(di, 1);
+      renderInlineMeanings();
+    });
+  });
+  container.querySelectorAll('textarea[data-field]').forEach(ta => {
+    ta.addEventListener('input', () => {
+      inlineMeanings[+ta.dataset.mi].definitions[+ta.dataset.di][ta.dataset.field] = ta.value;
+    });
+  });
+}
+
+document.getElementById('inline-add-meaning-btn').addEventListener('click', () => {
+  inlineMeanings.push({ partOfSpeech: 'noun', definitions: [{ definition: '', example: '' }] });
+  renderInlineMeanings();
+});
+
+document.getElementById('inline-discard-btn').addEventListener('click', () => {
+  hideEditor();
+  setStatus('', '');
+});
+
+document.getElementById('inline-play-btn').addEventListener('click', () => {
+  playAudio(document.getElementById('inline-audio-url').value.trim());
+});
+document.getElementById('inline-audio-url').addEventListener('input', updateInlinePlayBtn);
+document.getElementById('inline-phonetic').addEventListener('input', function() {
+  inlinePhonetic = this.value;
+});
+
+// ── Step 2: Save with edited data ─────────────────────────────────────────
+document.getElementById('inline-confirm-btn').addEventListener('click', async () => {
+  const word = document.getElementById('inline-word').value.trim();
+  if (!word) { setStatus('Word cannot be empty.', 'error'); return; }
+
+  for (const m of inlineMeanings) {
+    for (const d of m.definitions) {
+      if (!d.definition.trim()) { setStatus('Please fill in all definition fields.', 'error'); return; }
+    }
+  }
+
+  const confirmBtn = document.getElementById('inline-confirm-btn');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Saving…';
+
+  const isIdiom    = inlineMeanings.some(m => m.partOfSpeech === 'idiom');
+  const definition = inlineMeanings[0].definitions[0].definition;
+  const phonetic   = document.getElementById('inline-phonetic').value.trim();
+  const audio_url  = document.getElementById('inline-audio-url').value.trim();
+
+  try {
+    const res  = await fetch('/api/words', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        word, is_idiom: isIdiom, manual: true,
+        definition, meanings: inlineMeanings, phonetic, audio_url,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setStatus('❌ ' + (data.error || 'Unknown error'), 'error'); return; }
+
+    words.unshift(data);
+    setStatus(`✅ "${data.word}" has been saved!`, 'success');
+    wordInput.value = '';
+    hideEditor();
+    showPreview(data);
+  } catch (err) {
+    setStatus('❌ ' + err.message, 'error');
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = '💾 Save';
+  }
+});
+
+// ── Load words ────────────────────────────────────────────────────────────
+async function loadWords() {
+  const res = await fetch('/api/words');
+  words = await res.json();
+}
+
+// ── Word List ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderList();
+  });
+});
+
+function renderList() {
+  const grid     = document.getElementById('word-grid');
+  const count    = document.getElementById('list-count');
+  const filtered = activeFilter === 'all' ? words : words.filter(w => w.difficulty === activeFilter);
+
+  count.textContent = `${filtered.length} entr${filtered.length !== 1 ? 'ies' : 'y'}`;
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><p>No entries here yet.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(w => `
+    <div class="word-tile" id="tile-${w.id}">
+      <div class="tile-actions">
+        <button class="edit-btn"   data-id="${w.id}" title="Edit">✏️</button>
+        <button class="delete-btn" data-id="${w.id}" title="Delete">✕</button>
+      </div>
+      <div class="word-tile-head">
+        <span class="w-name">${w.word}</span>
+        <div class="pos-row">
+          ${w.is_idiom ? '<span class="pos-tag pos-idiom">idiom</span>' : buildPosRow(w.meanings)}
+        </div>
+      </div>
+      ${w.phonetic || w.audio_url ? `<div class="tile-phonetic">${phoneticHTML(w.phonetic, w.audio_url)}</div>` : ''}
+      <div class="word-tile-def">${w.definition}</div>
+      <span class="difficulty-badge badge-${w.difficulty}">${w.difficulty}</span>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = +btn.dataset.id;
+      const w  = words.find(x => x.id === id);
+      if (w) openEditModal(w);
+    });
+  });
+
+  grid.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = +btn.dataset.id;
+      if (!confirm('Delete this entry?')) return;
+      await fetch(`/api/words/${id}`, { method: 'DELETE' });
+      words = words.filter(w => w.id !== id);
+      renderList();
+    });
+  });
+}
+
+// ── Edit Modal ────────────────────────────────────────────────────────────
+const POS_OPTIONS = [
+  'noun','verb','adjective','adverb','pronoun',
+  'preposition','conjunction','interjection','idiom','other',
+];
+
+let editingId = null;
+
+function openEditModal(w) {
+  editingId = w.id;
+  const body = document.getElementById('modal-body');
+
+  // Deep-copy meanings so edits don't affect live data until saved
+  const meanings = JSON.parse(JSON.stringify(
+    w.meanings && w.meanings.length ? w.meanings : [{
+      partOfSpeech: w.is_idiom ? 'idiom' : 'other',
+      definitions: [{ definition: w.definition, example: '' }],
+    }]
+  ));
+
+  body.innerHTML = `
+    <label class="field-label">Word / Phrase</label>
+    <input class="field-input" id="edit-word" value="${escHtml(w.word)}" />
+
+    <label class="field-label">Pronunciation</label>
+    <div class="phonetic-row" style="margin-bottom:.85rem">
+      <input id="edit-phonetic"  type="text" value="${escHtml(w.phonetic || '')}"  placeholder="IPA  e.g. /ˌsɛrənˈdɪpɪti/" />
+      <button class="play-btn" id="edit-play-btn" title="Listen" ${w.audio_url ? '' : 'disabled'}>🔊</button>
+      <input id="edit-audio-url" type="text" value="${escHtml(w.audio_url || '')}" placeholder="Audio URL" style="font-size:.75rem;color:var(--muted)" />
+    </div>
+
+    <label class="field-label" style="margin-bottom:.6rem">Meanings</label>
+    <div id="meanings-editor"></div>
+    <button class="add-meaning-btn" id="add-meaning-btn">＋ Add part of speech</button>
+  `;
+
+  document.getElementById('edit-play-btn').addEventListener('click', () => {
+    playAudio(document.getElementById('edit-audio-url').value.trim());
+  });
+  document.getElementById('edit-audio-url').addEventListener('input', function() {
+    document.getElementById('edit-play-btn').disabled = !this.value.trim();
+  });
+
+  renderMeaningsEditor(meanings);
+
+  document.getElementById('add-meaning-btn').addEventListener('click', () => {
+    meanings.push({ partOfSpeech: 'noun', definitions: [{ definition: '', example: '' }] });
+    renderMeaningsEditor(meanings);
+  });
+
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function renderMeaningsEditor(meanings) {
+  const container = document.getElementById('meanings-editor');
+  container.innerHTML = meanings.map((m, mi) => `
+    <div class="meaning-editor" data-mi="${mi}">
+      <div class="meaning-editor-head">
+        <select class="pos-select" data-mi="${mi}">
+          ${POS_OPTIONS.map(p => `<option value="${p}" ${p === m.partOfSpeech ? 'selected' : ''}>${p}</option>`).join('')}
+        </select>
+        <button class="rm-meaning" data-mi="${mi}" title="Remove this POS">✕</button>
+      </div>
+      <div class="def-editor-list" id="def-list-${mi}">
+        ${m.definitions.map((d, di) => defItemHTML(mi, di, d)).join('')}
+        <button class="add-def-btn" data-mi="${mi}">＋ Add definition</button>
+      </div>
+    </div>
+  `).join('');
+
+  // POS change
+  container.querySelectorAll('.pos-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      meanings[+sel.dataset.mi].partOfSpeech = sel.value;
+    });
+  });
+
+  // Remove meaning
+  container.querySelectorAll('.rm-meaning').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (meanings.length === 1) { alert('At least one meaning is required.'); return; }
+      meanings.splice(+btn.dataset.mi, 1);
+      renderMeaningsEditor(meanings);
+    });
+  });
+
+  // Add definition
+  container.querySelectorAll('.add-def-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      meanings[+btn.dataset.mi].definitions.push({ definition: '', example: '' });
+      renderMeaningsEditor(meanings);
+    });
+  });
+
+  // Remove definition
+  container.querySelectorAll('.rm-def').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mi = +btn.dataset.mi, di = +btn.dataset.di;
+      if (meanings[mi].definitions.length === 1) { alert('At least one definition is required.'); return; }
+      meanings[mi].definitions.splice(di, 1);
+      renderMeaningsEditor(meanings);
+    });
+  });
+
+  // Live-sync textarea values back to meanings object
+  container.querySelectorAll('textarea[data-field]').forEach(ta => {
+    ta.addEventListener('input', () => {
+      const mi = +ta.dataset.mi, di = +ta.dataset.di;
+      meanings[mi].definitions[di][ta.dataset.field] = ta.value;
+    });
+  });
+
+  // Attach save handler (needs fresh meanings ref)
+  document.getElementById('modal-save-btn').onclick = () => saveEdit(meanings);
+}
+
+function defItemHTML(mi, di, d) {
+  return `
+    <div class="def-editor-item">
+      <div class="def-editor-col">
+        <textarea class="field-input" style="margin:0;min-height:44px"
+          data-mi="${mi}" data-di="${di}" data-field="definition"
+          placeholder="Definition…">${escHtml(d.definition)}</textarea>
+        <textarea class="field-input ex-ta" style="margin:0;min-height:36px"
+          data-mi="${mi}" data-di="${di}" data-field="example"
+          placeholder="Example sentence (optional)…">${escHtml(d.example || '')}</textarea>
+      </div>
+      <button class="rm-def" data-mi="${mi}" data-di="${di}" title="Remove">✕</button>
+    </div>
+  `;
+}
+
+async function saveEdit(meanings) {
+  const word = document.getElementById('edit-word').value.trim();
+  if (!word) { alert('Word cannot be empty.'); return; }
+
+  // Validate: all definitions must have text
+  for (const m of meanings) {
+    for (const d of m.definitions) {
+      if (!d.definition.trim()) { alert('Please fill in all definition fields.'); return; }
+    }
+  }
+
+  const saveBtn = document.getElementById('modal-save-btn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+
+  const isIdiom  = meanings.some(m => m.partOfSpeech === 'idiom');
+  const definition = meanings[0].definitions[0].definition;
+  const phonetic   = (document.getElementById('edit-phonetic')  || {}).value?.trim() || '';
+  const audio_url  = (document.getElementById('edit-audio-url') || {}).value?.trim() || '';
+
+  try {
+    const res  = await fetch(`/api/words/${editingId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word, definition, meanings, is_idiom: isIdiom, phonetic, audio_url }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert('Error: ' + (data.error || 'Unknown')); return; }
+
+    // Update local state
+    const idx = words.findIndex(w => w.id === editingId);
+    if (idx !== -1) words[idx] = data;
+
+    closeModal();
+    renderList();
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save changes';
+  }
+}
+
+function closeModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  editingId = null;
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('modal-close-btn') .addEventListener('click', closeModal);
+document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
+document.getElementById('edit-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('edit-modal')) closeModal();
+});
+
+// ── Flashcard ─────────────────────────────────────────────────────────────
+function renderFlash() {
+  const wrap = document.getElementById('flash-content');
+  if (!words.length) {
+    wrap.innerHTML = `<div class="no-words-flash"><div style="font-size:3rem">📭</div><p style="margin-top:.5rem">No entries yet. Add some first!</p></div>`;
+    return;
+  }
+  if (flashIdx >= words.length) flashIdx = 0;
+  const w = words[flashIdx];
+
+  const frontPosRow = w.is_idiom
+    ? '<span class="pos-tag pos-idiom" style="font-size:.85rem;">idiom</span>'
+    : buildPosRow(w.meanings);
+
+  wrap.innerHTML = `
+    <div class="flash-counter">Card ${flashIdx + 1} / ${words.length}</div>
+
+    <div class="card-scene" id="card-scene">
+      <div class="card-inner">
+        <div class="card-face card-front">
+          <div class="hint">Tap to reveal →</div>
+          <div class="fc-word">${w.word}</div>
+          ${(w.phonetic || w.audio_url) ? `<div style="margin-top:.5rem">${phoneticHTML(w.phonetic, w.audio_url)}</div>` : ''}
+          <div class="fc-pos-row" style="margin-top:.6rem">${frontPosRow}</div>
+        </div>
+        <div class="card-face card-back">
+          <div class="back-word">${w.word}</div>
+          ${buildMeaningsHTML(w.meanings)}
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:.8rem; color:var(--muted);">How well do you know this?</div>
+    <div class="flash-actions">
+      <button class="btn-diff btn-new"      data-diff="new">🔵 New</button>
+      <button class="btn-diff btn-learning" data-diff="learning">🟡 Learning</button>
+      <button class="btn-diff btn-mastered" data-diff="mastered">🟢 Mastered</button>
+      <button class="btn-diff btn-skip"     data-diff="skip">⏭ Skip</button>
+    </div>
+
+    <div class="flash-nav">
+      <button class="btn-nav" id="prev-btn" ${flashIdx === 0 ? 'disabled' : ''}>← Prev</button>
+      <button class="btn-nav" id="next-btn" ${flashIdx === words.length - 1 ? 'disabled' : ''}>Next →</button>
+    </div>
+  `;
+
+  document.getElementById('card-scene').addEventListener('click', () => {
+    document.getElementById('card-scene').classList.toggle('flipped');
+  });
+
+  wrap.querySelectorAll('.btn-diff').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const diff = btn.dataset.diff;
+      if (diff !== 'skip') {
+        await fetch(`/api/words/${w.id}/difficulty`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ difficulty: diff }),
+        });
+        words[flashIdx].difficulty = diff;
+      }
+      if (flashIdx < words.length - 1) { flashIdx++; renderFlash(); }
+    });
+  });
+
+  document.getElementById('prev-btn').addEventListener('click', () => {
+    if (flashIdx > 0) { flashIdx--; renderFlash(); }
+  });
+  document.getElementById('next-btn').addEventListener('click', () => {
+    if (flashIdx < words.length - 1) { flashIdx++; renderFlash(); }
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+(async () => {
+  await loadWords();
+  renderList();
+})();
+</script>
+</body>
+</html>
