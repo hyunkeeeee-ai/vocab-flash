@@ -65,8 +65,11 @@ def db_commit():
 
 
 def init_db():
+    """直接接続でDBを初期化（Flask の g に依存しない）"""
     if USE_PG:
-        cur = get_db().cursor()
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = True
+        cur = conn.cursor()
         cur.execute("""
             CREATE TABLE IF NOT EXISTS words (
                 id          SERIAL PRIMARY KEY,
@@ -81,7 +84,8 @@ def init_db():
                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        get_db().commit()
+        cur.close()
+        conn.close()
     else:
         import sqlite3 as _sq
         with _sq.connect(DB_PATH) as con:
@@ -212,6 +216,12 @@ SELECT_COLS = (
     "id, word, definition, examples, meanings, is_idiom, "
     "phonetic, audio_url, difficulty, created_at"
 )
+
+# 起動時にDB初期化
+try:
+    init_db()
+except Exception as e:
+    print(f"[WARNING] init_db failed: {e}")
 
 # ── Routes ──────────────────────────────────────────────────────────────────
 
@@ -356,9 +366,6 @@ def delete_word(word_id):
 
 
 # ── Entry point ─────────────────────────────────────────────────────────────
-
-with app.app_context():
-    init_db()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
